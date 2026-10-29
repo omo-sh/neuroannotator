@@ -108,3 +108,41 @@ export const WORKER_QUALIFICATIONS = [
     tasksUnlocked: "High-yield Medical, Code, and Engineering benchmarks (+200% pay)"
   }
 ];
+
+export const PLATFORM_RULES = {
+  TASK_ACTIVATION_DEPOSIT_KES: 5000,
+  REFERRAL_BONUS_KES: 500,
+  TARGET_WEEKLY_EARNINGS_KES: 12000,
+  MIN_WITHDRAWAL_KES: 25000,
+  PAYMENT_CYCLE_DAYS: 7, // 1 week
+  WITHDRAWAL_WINDOW: "Weekdays Only (Monday - Friday 09:00 - 17:00 UTC)",
+  ACCEPTED_CRYPTO: ["USDT (TRC20)", "USDT (Polygon/ERC20)", "BTC", "ETH"]
+};
+
+export const CRYPTO_DEPOSIT_CONFIG = [
+  {
+    network: "USDT (TRC20 - Tron)",
+    recommended: true,
+    address: "TXZ8v9Q2xLkMN4p9K1sDw6JhP3bE7rTyUa",
+    rateUsdToKes: 130, // 5,000 KES ~ 38.5 USDT
+    depositUsdt: 38.5,
+    memoRequired: false
+  },
+  {
+    network: "USDT (Polygon PoS)",
+    recommended: false,
+    address: "0x742d35Cc6634C0532925a3b844Bc454e4438f44e",
+    rateUsdToKes: 130,
+    depositUsdt: 38.5,
+    memoRequired: false
+  },
+  {
+    network: "Bitcoin (BTC)",
+    recommended: false,
+    address: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
+    rateUsdToKes: 130,
+    depositBtc: 0.00058,
+    memoRequired: false
+  }
+];
+

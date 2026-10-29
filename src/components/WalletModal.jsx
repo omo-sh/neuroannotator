@@ -30,19 +30,29 @@ export default function WalletModal({
 
   if (!isOpen) return null
 
-  const MIN_WITHDRAWAL_KES = 10000
+  const MIN_WITHDRAWAL_KES = 25000
 
-  // Calculate upcoming Friday disbursement date
-  const getNextFriday = () => {
+  // Check if current day is a weekday (Monday=1 to Friday=5)
+  const isWeekday = () => {
+    const day = new Date().getDay()
+    return day >= 1 && day <= 5 // 1 = Mon, 5 = Fri
+  }
+
+  // Calculate upcoming disbursement date (1 week release cycle, weekdays only)
+  const getNextDisbursementDate = () => {
     const today = new Date()
-    const dayOfWeek = today.getDay() // 0 = Sun, 5 = Fri
-    let daysUntilFriday = (5 - dayOfWeek + 7) % 7
-    if (daysUntilFriday === 0 && today.getHours() >= 16) {
-      daysUntilFriday = 7 // If today is Friday after 4 PM, schedule for next Friday
+    const targetDate = new Date(today)
+    targetDate.setDate(today.getDate() + 7) // 1 week payout cycle
+    
+    // If the 7th day falls on a weekend, adjust to next business day (Monday)
+    const dayOfWeek = targetDate.getDay()
+    if (dayOfWeek === 6) { // Saturday
+      targetDate.setDate(targetDate.getDate() + 2)
+    } else if (dayOfWeek === 0) { // Sunday
+      targetDate.setDate(targetDate.getDate() + 1)
     }
-    const nextFriday = new Date(today)
-    nextFriday.setDate(today.getDate() + daysUntilFriday)
-    return nextFriday.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })
+    
+    return targetDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })
   }
 
   const handleWithdrawalSubmit = (e) => {
@@ -50,8 +60,14 @@ export default function WalletModal({
     setErrorMessage('')
     setSuccessMessage('')
 
+    // Rule: Withdrawal only on weekdays
+    if (!isWeekday()) {
+      setErrorMessage('Withdrawals are restricted to Weekdays only (Monday to Friday 09:00 - 17:00 UTC). Please request on the next business day.')
+      return
+    }
+
     if (requestedAmount < MIN_WITHDRAWAL_KES) {
-      setErrorMessage(`The minimum scheduled withdrawal threshold is ${MIN_WITHDRAWAL_KES.toLocaleString()} KES.`)
+      setErrorMessage(`The minimum withdrawal threshold is ${MIN_WITHDRAWAL_KES.toLocaleString()} KES.`)
       return
     }
 
@@ -74,12 +90,12 @@ export default function WalletModal({
       amount: requestedAmount,
       method: withdrawalMethod,
       destination: withdrawalMethod === 'crypto' ? destinationAddress : phoneOrAccount,
-      batchDisbursementDate: getNextFriday(),
+      batchDisbursementDate: getNextDisbursementDate(),
       dateRequested: new Date().toISOString()
     }
 
     onRequestWithdrawal(payload)
-    setSuccessMessage(`Withdrawal requested successfully! Your batch of ${requestedAmount.toLocaleString()} KES is queued for release on ${getNextFriday()}.`)
+    setSuccessMessage(`Withdrawal requested successfully! Your payout of ${requestedAmount.toLocaleString()} KES has been queued. Payouts are released after a 1-week settlement verification period on ${getNextDisbursementDate()}.`)
     setDestinationAddress('')
     setPhoneOrAccount('')
   }
@@ -94,8 +110,8 @@ export default function WalletModal({
               <Wallet className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-white">Earnings & Friday Payouts</h2>
-              <p className="text-xs text-slate-400">Weekly automated micro-task settlement cycle</p>
+              <h2 className="text-base font-bold text-white">Earnings & Payout Settlement</h2>
+              <p className="text-xs text-slate-400">Weekly automated micro-task settlement cycle • Weekdays only</p>
             </div>
           </div>
           <button 
@@ -137,19 +153,20 @@ export default function WalletModal({
             </div>
           </div>
 
-          {/* Friday Payout Schedule Banner */}
+          {/* Payout Schedule Banner */}
           <div className="bg-teal-950/20 border border-teal-500/20 rounded-2xl p-4 flex items-start gap-3">
             <Calendar className="w-5 h-5 text-teal-400 shrink-0 mt-0.5" />
             <div className="text-xs space-y-1">
               <div className="font-bold text-white flex items-center gap-2">
-                <span>Next Scheduled Release: {getNextFriday()}</span>
+                <span>Estimated Release: {getNextDisbursementDate()}</span>
                 <span className="bg-teal-500/10 text-teal-400 text-[10px] px-2 py-0.5 rounded-full font-mono border border-teal-500/20 font-normal">
-                  Friday Cycle
+                  Weekdays Only
                 </span>
               </div>
               <p className="text-slate-300 leading-relaxed">
-                To minimize network and exchange processing overhead, all approved payouts exceeding the 
-                <strong className="text-white"> {MIN_WITHDRAWAL_KES.toLocaleString()} KES minimum threshold</strong> are automatically batched and released on Friday afternoon.
+                Task earnings mature over a <strong className="text-white">1-week verification period</strong>. 
+                Approved withdrawals require a minimum balance of <strong className="text-teal-400">{MIN_WITHDRAWAL_KES.toLocaleString()} KES</strong> and are disbursed 
+                strictly on <strong className="text-white">Weekdays (Monday to Friday)</strong>.
               </p>
             </div>
           </div>

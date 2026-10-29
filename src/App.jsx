@@ -13,33 +13,64 @@ import {
   ShieldCheck,
   Building2,
   Users,
-  AlertCircle
+  AlertCircle,
+  Lock,
+  Unlock
 } from 'lucide-react'
-import { INITIAL_CAMPAIGNS, WORKER_QUALIFICATIONS } from './data/mockData'
+import { INITIAL_CAMPAIGNS, WORKER_QUALIFICATIONS, PLATFORM_RULES } from './data/mockData'
 import TaskRunner from './components/TaskRunner'
 import WalletModal from './components/WalletModal'
 import ReferralSection from './components/ReferralSection'
 import ClientCampaignCreator from './components/ClientCampaignCreator'
+import CryptoDepositModal from './components/CryptoDepositModal'
 
 export default function App() {
   const [campaigns, setCampaigns] = useState(INITIAL_CAMPAIGNS)
   const [activeCampaign, setActiveCampaign] = useState(null)
   const [currentTab, setCurrentTab] = useState('tasks') // 'tasks' | 'client' | 'referrals'
   
+  // Task Activation / Anti-sybil Deposit Lock (5,000 KES)
+  const [isTaskAccessUnlocked, setIsTaskAccessUnlocked] = useState(() => {
+    return localStorage.getItem('neuro_task_access_unlocked') === 'true'
+  })
+  const [isDepositModalOpen, setIsDepositModalOpen] = useState(false)
+  const [pendingCampaignToStart, setPendingCampaignToStart] = useState(null)
+
   // Financial State
-  const [balanceAvailable, setBalanceAvailable] = useState(12450) // Above 10k KES to allow demo withdrawal
-  const [balanceInReview, setBalanceInReview] = useState(3800)
-  const [completedTasksCount, setCompletedTasksCount] = useState(48)
-  const [accuracyScore, setAccuracyScore] = useState(96.4)
+  const [balanceAvailable, setBalanceAvailable] = useState(26800) // Meets 25k KES threshold for test withdrawal
+  const [balanceInReview, setBalanceInReview] = useState(4200)
+  const [completedTasksCount, setCompletedTasksCount] = useState(54)
+  const [accuracyScore, setAccuracyScore] = useState(97.2)
   const [isWalletOpen, setIsWalletOpen] = useState(false)
   const [payoutHistory, setPayoutHistory] = useState([
     {
-      amount: 14200,
+      amount: 25000,
       method: "Crypto (USDT-Polygon)",
-      batchDisbursementDate: "Friday, Oct 17, 2026",
+      batchDisbursementDate: "Friday, Oct 24, 2026",
       status: "Released"
     }
   ])
+
+  // Handle deposit verification completion
+  const handleDepositVerified = (txHash) => {
+    setIsTaskAccessUnlocked(true)
+    localStorage.setItem('neuro_task_access_unlocked', 'true')
+    localStorage.setItem('neuro_deposit_txhash', txHash)
+    if (pendingCampaignToStart) {
+      setActiveCampaign(pendingCampaignToStart)
+      setPendingCampaignToStart(null)
+    }
+  }
+
+  // Handle campaign start click (requires unlocked deposit)
+  const handleStartCampaignClick = (camp) => {
+    if (!isTaskAccessUnlocked) {
+      setPendingCampaignToStart(camp)
+      setIsDepositModalOpen(true)
+    } else {
+      setActiveCampaign(camp)
+    }
+  }
 
   // Handle task submission from TaskRunner
   const handleTaskFinish = (submission) => {
@@ -121,7 +152,7 @@ export default function App() {
               }`}
             >
               <Users className="w-3.5 h-3.5" />
-              <span>Referrals (5%)</span>
+              <span>Referrals (500 KES)</span>
             </button>
           </nav>
 
@@ -168,11 +199,11 @@ export default function App() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-sm">
                 <div className="text-xs text-slate-400 flex items-center gap-1.5 mb-1 font-medium">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-teal-400" />
-                  <span>Tasks Completed</span>
+                  <TrendingUp className="w-3.5 h-3.5 text-teal-400" />
+                  <span>Target Earnings</span>
                 </div>
-                <div className="text-xl font-bold font-mono text-white">
-                  {completedTasksCount} <span className="text-xs font-normal text-slate-400 font-sans">verified</span>
+                <div className="text-xl font-bold font-mono text-teal-400">
+                  {PLATFORM_RULES.TARGET_WEEKLY_EARNINGS_KES.toLocaleString()} <span className="text-xs font-normal text-slate-400 font-sans">KES / week</span>
                 </div>
               </div>
 
@@ -202,7 +233,7 @@ export default function App() {
                   <span>Settlement Cycle</span>
                 </div>
                 <div className="text-xs font-semibold text-white mt-1">
-                  Every Friday (Min 10,000 KES)
+                  1 Week (Min {PLATFORM_RULES.MIN_WITHDRAWAL_KES.toLocaleString()} KES)
                 </div>
               </div>
             </div>
@@ -210,6 +241,38 @@ export default function App() {
             {/* Tab Views */}
             {currentTab === 'tasks' && (
               <div className="space-y-6">
+                {/* Deposit Activation Banner if not unlocked */}
+                {!isTaskAccessUnlocked ? (
+                  <div className="bg-gradient-to-r from-teal-950/60 via-slate-900 to-amber-950/30 border border-teal-500/30 rounded-3xl p-6 relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-5 shadow-xl">
+                    <div className="space-y-2 max-w-xl">
+                      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                        <Lock className="w-3.5 h-3.5" />
+                        <span>Security Deposit Required • 5,000 KES</span>
+                      </div>
+                      <h2 className="text-xl font-extrabold text-white">
+                        Task Access Locked: Activate Your Annotator Account
+                      </h2>
+                      <p className="text-xs text-slate-300 leading-relaxed">
+                        To receive live production tasks and target up to <strong className="text-teal-400">12,000 KES / week</strong>, submit your one-time refundable sybil security bond of <strong className="text-white">5,000 KES</strong> via Crypto (USDT / BTC).
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setIsDepositModalOpen(true)}
+                      className="px-5 py-3 rounded-xl bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold text-xs flex items-center gap-2 shadow-lg shadow-teal-500/20 transition shrink-0"
+                    >
+                      <Unlock className="w-4 h-4" />
+                      <span>Deposit 5,000 KES to Unlock</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="bg-emerald-950/20 border border-emerald-500/30 rounded-2xl px-5 py-3 flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2.5 text-emerald-400 font-semibold">
+                      <ShieldCheck className="w-4 h-4" />
+                      <span>Task Account Active • 5,000 KES Security Bond Confirmed on Blockchain</span>
+                    </div>
+                    <span className="text-[11px] font-mono text-slate-400">Status: Unlocked</span>
+                  </div>
+                )}
                 {/* Hero / Instruction Banner */}
                 <div className="bg-gradient-to-r from-teal-950/40 via-slate-900 to-slate-900 border border-teal-500/20 rounded-3xl p-6 relative overflow-hidden">
                   <div className="max-w-2xl space-y-2">
@@ -280,11 +343,15 @@ export default function App() {
                           </div>
 
                           <button
-                            onClick={() => setActiveCampaign(camp)}
+                            onClick={() => handleStartCampaignClick(camp)}
                             className="w-full py-2.5 bg-slate-800 group-hover:bg-teal-500 text-slate-200 group-hover:text-slate-950 font-bold rounded-xl text-xs transition flex items-center justify-center gap-1.5"
                           >
                             <span>Start Annotating</span>
-                            <ChevronRight className="w-3.5 h-3.5" />
+                            {!isTaskAccessUnlocked ? (
+                              <Lock className="w-3.5 h-3.5 text-amber-400 group-hover:text-slate-950" />
+                            ) : (
+                              <ChevronRight className="w-3.5 h-3.5" />
+                            )}
                           </button>
                         </div>
                       </div>
@@ -369,14 +436,23 @@ export default function App() {
         onRequestWithdrawal={handleRequestWithdrawal}
       />
 
+      {/* Crypto Security Deposit Modal (5,000 KES Task Unlock) */}
+      <CryptoDepositModal
+        isOpen={isDepositModalOpen}
+        onClose={() => setIsDepositModalOpen(false)}
+        onDepositVerified={handleDepositVerified}
+      />
+
       {/* Footer */}
       <footer className="border-t border-slate-800/80 bg-slate-950/60 py-6 text-center text-xs text-slate-500 font-mono">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
           <span>© 2026 NeuroAnnotator Platform • Built for Verified AI Model Alignment</span>
           <div className="flex items-center gap-4 text-slate-400">
-            <span>Friday Settlement Protocol</span>
+            <span>1-Week Settlement Protocol</span>
             <span>•</span>
-            <span>10,000 KES Minimum Threshold</span>
+            <span>{PLATFORM_RULES.MIN_WITHDRAWAL_KES.toLocaleString()} KES Minimum Threshold</span>
+            <span>•</span>
+            <span>Weekdays Only</span>
             <span>•</span>
             <span>Crypto / M-Pesa / Bank Wire</span>
           </div>

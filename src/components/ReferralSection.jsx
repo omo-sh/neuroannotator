@@ -27,13 +27,13 @@ export default function ReferralSection({ referralCode = "NEURO-8829" }) {
         <div className="space-y-2 max-w-xl">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-teal-500/10 text-teal-400 border border-teal-500/20">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>Community Contributor Program</span>
+            <span>Community Contributor Program • 500 KES Per Friend</span>
           </div>
           <h3 className="text-lg font-bold text-white">
             Invite High-Accuracy Annotators
           </h3>
           <p className="text-xs text-slate-400 leading-relaxed">
-            Earn a recurring <strong className="text-white">5% commission</strong> from the platform service fee on every verified, quality-approved task your invited peers complete—credited straight into your Friday payout balance.
+            Earn an instant <strong className="text-white">500 KES bonus</strong> straight into your account for every peer who joins using your link and activates their task access with their initial security deposit.
           </p>
         </div>
 
@@ -56,7 +56,7 @@ export default function ReferralSection({ referralCode = "NEURO-8829" }) {
           </div>
           <div className="flex justify-between items-center text-[10px] text-slate-500 mt-0.5">
             <span>Referrals Active: <strong>3 peers</strong></span>
-            <span>Earned: <strong>1,850 KES</strong></span>
+            <span>Earned: <strong>1,500 KES (3 × 500)</strong></span>
           </div>
         </div>
       </div>
