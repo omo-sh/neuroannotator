@@ -65,6 +65,23 @@ export default function TaskRunner({ campaign, onFinish, onCancel }) {
       setIsSubmitting(false)
       const isCorrect = currentTask.expectedBetter ? selectedModel === currentTask.expectedBetter : true
 
+      // Persist task evaluation directly to backend database
+      fetch('/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: localStorage.getItem('neuro_user_id') || 'guest_worker',
+          username: localStorage.getItem('neuro_username') || 'annotator',
+          campaignId: campaign.id,
+          taskId: currentTask.id,
+          selectedResponse: selectedModel,
+          rationale: justification,
+          earnedKes: campaign.rewardPerTask
+        })
+      })
+        .then(res => res.json())
+        .catch(err => console.error('Failed to save task to database:', err))
+
       // Notify parent of successful task submission
       onFinish({
         campaignId: campaign.id,

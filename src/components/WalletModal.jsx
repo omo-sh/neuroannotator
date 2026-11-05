@@ -94,6 +94,22 @@ export default function WalletModal({
       dateRequested: new Date().toISOString()
     }
 
+    // Send withdrawal to backend database
+    fetch('/api/withdrawals', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: localStorage.getItem('neuro_user_id') || 'guest_worker',
+        username: localStorage.getItem('neuro_username') || 'annotator',
+        amountKes: requestedAmount,
+        payoutMethod: withdrawalMethod === 'crypto' ? 'USDT (TRC-20 / Polygon)' : 'M-Pesa Safaricom',
+        accountDetails: withdrawalMethod === 'crypto' ? destinationAddress : phoneOrAccount,
+        batchDate: getNextDisbursementDate()
+      })
+    })
+      .then(res => res.json())
+      .catch(err => console.error('Failed to save withdrawal request:', err))
+
     onRequestWithdrawal(payload)
     setSuccessMessage(`Withdrawal requested successfully! Your payout of ${requestedAmount.toLocaleString()} KES has been queued. Payouts are released after a 1-week settlement verification period on ${getNextDisbursementDate()}.`)
     setDestinationAddress('')

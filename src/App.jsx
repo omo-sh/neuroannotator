@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { 
   Bot, 
   Sparkles, 
@@ -15,7 +15,10 @@ import {
   Users,
   AlertCircle,
   Lock,
-  Unlock
+  Unlock,
+  LogIn,
+  LogOut,
+  SlidersHorizontal
 } from 'lucide-react'
 import { INITIAL_CAMPAIGNS, WORKER_QUALIFICATIONS, PLATFORM_RULES } from './data/mockData'
 import TaskRunner from './components/TaskRunner'
@@ -23,12 +26,25 @@ import WalletModal from './components/WalletModal'
 import ReferralSection from './components/ReferralSection'
 import ClientCampaignCreator from './components/ClientCampaignCreator'
 import CryptoDepositModal from './components/CryptoDepositModal'
+import AuthModal from './components/AuthModal'
+import AdminPortal from './components/AdminPortal'
 
 export default function App() {
   const [campaigns, setCampaigns] = useState(INITIAL_CAMPAIGNS)
   const [activeCampaign, setActiveCampaign] = useState(null)
-  const [currentTab, setCurrentTab] = useState('tasks') // 'tasks' | 'client' | 'referrals'
+  const [currentTab, setCurrentTab] = useState('tasks') // 'tasks' | 'client' | 'referrals' | 'admin'
   
+  // Auth & Session State
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem('neuro_user_session')
+      return saved ? JSON.parse(saved) : null
+    } catch (_) {
+      return null
+    }
+  })
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
+
   // Task Activation / Anti-sybil Deposit Lock (5,000 KES)
   const [isTaskAccessUnlocked, setIsTaskAccessUnlocked] = useState(() => {
     return localStorage.getItem('neuro_task_access_unlocked') === 'true'
@@ -37,9 +53,15 @@ export default function App() {
   const [pendingCampaignToStart, setPendingCampaignToStart] = useState(null)
 
   // Financial State
-  const [balanceAvailable, setBalanceAvailable] = useState(26800) // Meets 25k KES threshold for test withdrawal
-  const [balanceInReview, setBalanceInReview] = useState(4200)
-  const [completedTasksCount, setCompletedTasksCount] = useState(54)
+  const [balanceAvailable, setBalanceAvailable] = useState(() => {
+    return currentUser ? Number(currentUser.balance_available) || 0 : 26800
+  })
+  const [balanceInReview, setBalanceInReview] = useState(() => {
+    return currentUser ? Number(currentUser.balance_in_review) || 0 : 4200
+  })
+  const [completedTasksCount, setCompletedTasksCount] = useState(() => {
+    return currentUser ? Number(currentUser.completed_tasks_count) || 0 : 54
+  })
   const [accuracyScore, setAccuracyScore] = useState(97.2)
   const [isWalletOpen, setIsWalletOpen] = useState(false)
   const [payoutHistory, setPayoutHistory] = useState([
@@ -50,6 +72,63 @@ export default function App() {
       status: "Released"
     }
   ])
+
+  // Sync state if currentUser changes
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem('neuro_user_id', currentUser.id)
+      localStorage.setItem('neuro_username', currentUser.username)
+      localStorage.setItem('neuro_email', currentUser.email || '')
+      if (currentUser.is_task_unlocked) {
+        setIsTaskAccessUnlocked(true)
+        localStorage.setItem('neuro_task_access_unlocked', 'true')
+      }
+      setBalanceAvailable(currentUser.balance_available ?? 0)
+      setBalanceInReview(currentUser.balance_in_review ?? 0)
+      setCompletedTasksCount(currentUser.completed_tasks_count ?? 0)
+    }
+  }, [currentUser])
+
+  // Refresh profile data periodically
+  useEffect(() => {
+    if (!currentUser?.id) return
+    const refreshProfile = async () => {
+      try {
+        const res = await fetch(`/api/auth?action=me&userId=${currentUser.id}`)
+        if (res.ok) {
+          const fresh = await res.json()
+          setCurrentUser(prev => ({ ...prev, ...fresh }))
+          localStorage.setItem('neuro_user_session', JSON.stringify({ ...currentUser, ...fresh }))
+          if (fresh.is_task_unlocked) {
+            setIsTaskAccessUnlocked(true)
+            localStorage.setItem('neuro_task_access_unlocked', 'true')
+          }
+        }
+      } catch (err) {
+        console.error('Session sync error:', err)
+      }
+    }
+    refreshProfile()
+  }, [])
+
+  // Handle Login / Sign Out
+  const handleAuthSuccess = (user) => {
+    setCurrentUser(user)
+    if (user.is_super_admin) {
+      setCurrentTab('admin')
+    }
+  }
+
+  const handleSignOut = () => {
+    localStorage.removeItem('neuro_user_session')
+    localStorage.removeItem('neuro_user_id')
+    localStorage.removeItem('neuro_username')
+    localStorage.removeItem('neuro_email')
+    setCurrentUser(null)
+    setIsTaskAccessUnlocked(false)
+    localStorage.removeItem('neuro_task_access_unlocked')
+    setCurrentTab('tasks')
+  }
 
   // Handle deposit verification completion
   const handleDepositVerified = (txHash) => {
@@ -64,6 +143,11 @@ export default function App() {
 
   // Handle campaign start click (requires unlocked deposit)
   const handleStartCampaignClick = (camp) => {
+    if (!currentUser) {
+      setIsAuthModalOpen(true)
+      return
+    }
+
     if (!isTaskAccessUnlocked) {
       setPendingCampaignToStart(camp)
       setIsDepositModalOpen(true)
@@ -74,11 +158,9 @@ export default function App() {
 
   // Handle task submission from TaskRunner
   const handleTaskFinish = (submission) => {
-    // Add earnings to pending balance for QA review
     setBalanceInReview(prev => prev + submission.earnedKes)
     setCompletedTasksCount(prev => prev + 1)
 
-    // Update campaign progress
     setCampaigns(prev => prev.map(c => {
       if (c.id === submission.campaignId) {
         return { ...c, completedTasks: c.completedTasks + 1 }
@@ -98,6 +180,8 @@ export default function App() {
     setCampaigns(prev => [newCamp, ...prev])
     setCurrentTab('tasks')
   }
+
+  const isSuperAdmin = currentUser?.is_super_admin || currentUser?.username === 'suuki'
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-teal-500 selection:text-white">
@@ -154,6 +238,21 @@ export default function App() {
               <Users className="w-3.5 h-3.5" />
               <span>Referrals (500 KES)</span>
             </button>
+
+            {/* Admin Command Desk Tab (visible to super admins or via ?admin=true) */}
+            {(isSuperAdmin || window.location.search.includes('admin')) && (
+              <button
+                onClick={() => { setActiveCampaign(null); setCurrentTab('admin'); }}
+                className={`px-4 py-1.5 rounded-xl transition flex items-center gap-1.5 ${
+                  currentTab === 'admin' 
+                    ? 'bg-amber-400 text-slate-950 font-black shadow' 
+                    : 'text-amber-400/90 hover:text-amber-300'
+                }`}
+              >
+                <SlidersHorizontal className="w-3.5 h-3.5" />
+                <span>Admin Command</span>
+              </button>
+            )}
           </nav>
 
           {/* Right User Bar & Wallet Pill */}
@@ -175,19 +274,40 @@ export default function App() {
               </div>
             </button>
 
-            <div className="hidden sm:flex items-center gap-2 pl-2 border-l border-slate-800">
-              <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-xs text-teal-400 font-mono">
-                IS
+            {/* Auth Button or User Profile Pill */}
+            {currentUser ? (
+              <div className="flex items-center gap-2 pl-2 border-l border-slate-800">
+                <div className="w-8 h-8 rounded-full bg-teal-500/20 border border-teal-500/40 flex items-center justify-center font-bold text-xs text-teal-300 font-mono" title={currentUser.username}>
+                  {currentUser.username.substring(0, 2).toUpperCase()}
+                </div>
+                <button
+                  onClick={handleSignOut}
+                  title="Sign Out"
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
               </div>
-            </div>
+            ) : (
+              <button
+                onClick={() => setIsAuthModalOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-500 hover:bg-teal-400 text-slate-950 font-extrabold text-xs rounded-xl shadow transition"
+              >
+                <LogIn className="w-3.5 h-3.5" />
+                <span>Log In</span>
+              </button>
+            )}
           </div>
         </div>
       </header>
 
       {/* Main Content Body */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full space-y-8">
-        {/* If Active Campaign is running, render TaskRunner directly */}
-        {activeCampaign ? (
+        
+        {/* Render Admin Portal if admin tab active */}
+        {currentTab === 'admin' ? (
+          <AdminPortal currentUser={currentUser} />
+        ) : activeCampaign ? (
           <TaskRunner
             campaign={activeCampaign}
             onFinish={handleTaskFinish}
@@ -233,125 +353,111 @@ export default function App() {
                   <span>Settlement Cycle</span>
                 </div>
                 <div className="text-xs font-semibold text-white mt-1">
-                  1 Week (Min {PLATFORM_RULES.MIN_WITHDRAWAL_KES.toLocaleString()} KES)
+                  Automated Weekly (Fridays)
+                </div>
+                <div className="text-[10px] text-slate-400 font-mono mt-0.5">
+                  Min: {PLATFORM_RULES.MIN_WITHDRAWAL_KES.toLocaleString()} KES • Weekdays
                 </div>
               </div>
             </div>
 
-            {/* Tab Views */}
+            {/* TAB CONTENT */}
             {currentTab === 'tasks' && (
               <div className="space-y-6">
-                {/* Deposit Activation Banner if not unlocked */}
-                {!isTaskAccessUnlocked ? (
-                  <div className="bg-gradient-to-r from-teal-950/60 via-slate-900 to-amber-950/30 border border-teal-500/30 rounded-3xl p-6 relative overflow-hidden flex flex-col md:flex-row items-start md:items-center justify-between gap-5 shadow-xl">
-                    <div className="space-y-2 max-w-xl">
-                      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                        <Lock className="w-3.5 h-3.5" />
-                        <span>Security Deposit Required • 5,000 KES</span>
+                
+                {/* Anti-Sybil / Security Deposit Banner */}
+                {!isTaskAccessUnlocked && (
+                  <div className="bg-gradient-to-r from-teal-950/40 via-slate-900 to-slate-900 border border-teal-500/30 rounded-3xl p-6 relative overflow-hidden">
+                    <div className="max-w-2xl space-y-3">
+                      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-500/10 border border-teal-500/20 text-teal-400 text-xs font-bold font-mono">
+                        <Lock className="w-3 h-3" />
+                        <span>Worker Account Activation Required</span>
                       </div>
-                      <h2 className="text-xl font-extrabold text-white">
-                        Task Access Locked: Activate Your Annotator Account
-                      </h2>
+                      <h3 className="text-lg font-bold text-white">
+                        Activate Evaluation Tasks with One-Time Security Deposit
+                      </h3>
                       <p className="text-xs text-slate-300 leading-relaxed">
-                        To receive live production tasks and target up to <strong className="text-teal-400">12,000 KES / week</strong>, submit your one-time refundable sybil security bond of <strong className="text-white">5,000 KES</strong> via Crypto (USDT / BTC).
+                        To maintain high dataset integrity and prevent bot sybil spam, new evaluators lock a refundable <strong>5,000 KES (~38.5 USDT)</strong> security bond. Deposits are credited to your active workstation balance and unlock immediate task queue access.
                       </p>
+                      <div className="flex flex-wrap items-center gap-4 pt-2">
+                        <button
+                          onClick={() => {
+                            if (!currentUser) setIsAuthModalOpen(true)
+                            else setIsDepositModalOpen(true)
+                          }}
+                          className="px-5 py-2.5 rounded-xl bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold text-xs shadow-lg shadow-teal-500/20 transition flex items-center gap-2"
+                        >
+                          <Unlock className="w-3.5 h-3.5" />
+                          <span>Unlock All High-Yield Campaigns (5,000 KES)</span>
+                        </button>
+                        <span className="text-xs text-slate-400 font-mono">
+                          Accepted: USDT (TRC20 / Polygon) • BTC
+                        </span>
+                      </div>
                     </div>
-                    <button
-                      onClick={() => setIsDepositModalOpen(true)}
-                      className="px-5 py-3 rounded-xl bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold text-xs flex items-center gap-2 shadow-lg shadow-teal-500/20 transition shrink-0"
-                    >
-                      <Unlock className="w-4 h-4" />
-                      <span>Deposit 5,000 KES to Unlock</span>
-                    </button>
-                  </div>
-                ) : (
-                  <div className="bg-emerald-950/20 border border-emerald-500/30 rounded-2xl px-5 py-3 flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2.5 text-emerald-400 font-semibold">
-                      <ShieldCheck className="w-4 h-4" />
-                      <span>Task Account Active • 5,000 KES Security Bond Confirmed on Blockchain</span>
-                    </div>
-                    <span className="text-[11px] font-mono text-slate-400">Status: Unlocked</span>
                   </div>
                 )}
-                {/* Hero / Instruction Banner */}
-                <div className="bg-gradient-to-r from-teal-950/40 via-slate-900 to-slate-900 border border-teal-500/20 rounded-3xl p-6 relative overflow-hidden">
-                  <div className="max-w-2xl space-y-2">
-                    <span className="text-xs font-mono font-bold uppercase tracking-wider text-teal-400">
-                      Live Production Task Feed
-                    </span>
-                    <h1 className="text-2xl font-extrabold text-white tracking-tight">
-                      Train Frontier AI Models with Human Feedback
-                    </h1>
-                    <p className="text-xs text-slate-300 leading-relaxed">
-                      Select an active client campaign below to start annotating. All tasks pay out per verified completion, reviewed through automated consensus and released weekly on Fridays.
-                    </p>
-                  </div>
-                </div>
 
-                {/* Campaign Feeds */}
+                {/* Campaign Grid */}
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <h2 className="text-sm font-bold text-white uppercase tracking-wider font-mono">
-                      Available Annotation Batches ({campaigns.length})
-                    </h2>
-                    <span className="text-xs text-slate-500">Updated in real-time</span>
+                    <div>
+                      <h3 className="text-base font-bold text-white">Live AI Training Campaigns</h3>
+                      <p className="text-xs text-slate-400">Select a project segment to begin evaluation & RLHF labeling</p>
+                    </div>
+                    <span className="text-xs font-mono text-slate-500">{campaigns.length} Active Benchmarks</span>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                     {campaigns.map((camp) => (
                       <div
                         key={camp.id}
-                        className="bg-slate-900 border border-slate-800 hover:border-teal-500/40 rounded-2xl p-5 flex flex-col justify-between transition-all hover:shadow-xl hover:shadow-teal-500/5 group"
+                        className="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl p-5 flex flex-col justify-between transition group shadow-sm"
                       >
                         <div className="space-y-3">
                           <div className="flex items-center justify-between">
-                            <span className="text-[11px] font-mono font-bold text-teal-400 bg-teal-500/10 px-2.5 py-1 rounded-full border border-teal-500/20">
+                            <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+                              {camp.category}
+                            </span>
+                            <span className="text-xs font-mono font-bold text-teal-400">
                               +{camp.rewardPerTask} KES / task
                             </span>
-                            <span className="text-[10px] text-slate-400 font-mono">
-                              {camp.tierRequired}
-                            </span>
                           </div>
 
                           <div>
-                            <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider block">
-                              Client: {camp.client}
-                            </span>
-                            <h3 className="text-sm font-bold text-white group-hover:text-teal-300 transition mt-0.5">
+                            <h4 className="text-sm font-bold text-white group-hover:text-teal-400 transition">
                               {camp.title}
-                            </h3>
+                            </h4>
+                            <p className="text-[11px] text-slate-400 font-mono mt-0.5">
+                              Client: {camp.client}
+                            </p>
                           </div>
 
-                          <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">
+                          <p className="text-xs text-slate-300 leading-relaxed line-clamp-2">
                             {camp.description}
                           </p>
-                        </div>
 
-                        <div className="pt-4 mt-4 border-t border-slate-800/80 space-y-3">
-                          {/* Progress Bar */}
-                          <div>
-                            <div className="flex justify-between text-[10px] font-mono text-slate-500 mb-1">
-                              <span>Batch Progress</span>
-                              <span>{Math.round((camp.completedTasks / camp.totalTasks) * 100)}%</span>
+                          <div className="space-y-1.5 pt-2 border-t border-slate-800/80">
+                            <div className="flex items-center justify-between text-[11px] text-slate-400">
+                              <span>Queue Completion</span>
+                              <span className="font-mono">{Math.round((camp.completedTasks / camp.totalTasks) * 100)}%</span>
                             </div>
-                            <div className="w-full bg-slate-950 h-1.5 rounded-full overflow-hidden">
+                            <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
                               <div 
-                                className="bg-teal-500 h-full rounded-full transition-all"
+                                className="bg-teal-500 h-1.5 rounded-full" 
                                 style={{ width: `${(camp.completedTasks / camp.totalTasks) * 100}%` }}
                               ></div>
                             </div>
                           </div>
+                        </div>
 
+                        <div className="pt-4 mt-2">
                           <button
                             onClick={() => handleStartCampaignClick(camp)}
-                            className="w-full py-2.5 bg-slate-800 group-hover:bg-teal-500 text-slate-200 group-hover:text-slate-950 font-bold rounded-xl text-xs transition flex items-center justify-center gap-1.5"
+                            className="w-full py-2.5 rounded-xl font-bold text-xs bg-slate-800 hover:bg-teal-500 hover:text-slate-950 text-white transition flex items-center justify-center gap-1.5 group-hover:bg-teal-500 group-hover:text-slate-950 shadow"
                           >
-                            <span>Start Annotating</span>
-                            {!isTaskAccessUnlocked ? (
-                              <Lock className="w-3.5 h-3.5 text-amber-400 group-hover:text-slate-950" />
-                            ) : (
-                              <ChevronRight className="w-3.5 h-3.5" />
-                            )}
+                            <span>{!isTaskAccessUnlocked ? 'Unlock Queue & Start' : 'Start Annotation Queue'}</span>
+                            <ChevronRight className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       </div>
@@ -359,23 +465,24 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Worker Qualification Badges */}
-                <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4">
+                {/* Worker Tier Qualifications */}
+                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="text-sm font-bold text-white flex items-center gap-2">
                         <Award className="w-4 h-4 text-teal-400" />
-                        <span>Skill-Based Qualification Badges</span>
+                        <span>Domain Certification & Skill Badges</span>
                       </h3>
-                      <p className="text-xs text-slate-400 mt-0.5">
-                        Pass free accuracy benchmark exams to unlock higher-tier datasets without any upfront payment.
-                      </p>
+                      <p className="text-xs text-slate-400">Higher tiers unlock high-yield clinical medical summaries, financial math, and STEM reasoning (+200% payout)</p>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {WORKER_QUALIFICATIONS.map((q) => (
-                      <div key={q.id} className="bg-slate-950 border border-slate-800/80 rounded-2xl p-4 flex flex-col justify-between">
+                      <div 
+                        key={q.id}
+                        className="bg-slate-950/60 border border-slate-800/80 rounded-xl p-4 flex flex-col justify-between"
+                      >
                         <div>
                           <div className="flex items-center justify-between mb-2">
                             <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300">
@@ -425,6 +532,13 @@ export default function App() {
           </>
         )}
       </main>
+
+      {/* Auth Modal (Sign In / Sign Up) */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onAuthSuccess={handleAuthSuccess}
+      />
 
       {/* Friday Wallet & Disbursement Modal */}
       <WalletModal

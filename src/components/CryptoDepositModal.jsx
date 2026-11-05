@@ -52,15 +52,31 @@ export default function CryptoDepositModal({
 
     setIsVerifying(true)
 
-    // Simulate blockchain node confirmation
-    setTimeout(() => {
-      setIsVerifying(false)
-      setIsSuccess(true)
-      setTimeout(() => {
-        onDepositVerified(trimmed)
-        onClose()
-      }, 1500)
-    }, 1800)
+    // Send deposit transaction to backend database for permanent recording
+    fetch('/api/deposits', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: localStorage.getItem('neuro_user_id') || 'guest_worker',
+        username: localStorage.getItem('neuro_username') || 'annotator',
+        email: localStorage.getItem('neuro_email') || '',
+        network: currentNetwork.network,
+        depositAddress: currentNetwork.address,
+        amountKes: 5000,
+        amountUsdt: currentNetwork.depositUsdt || 38.5,
+        txHash: trimmed
+      })
+    })
+      .then(res => res.json())
+      .catch(err => console.error('Failed to save deposit record:', err))
+      .finally(() => {
+        setIsVerifying(false)
+        setIsSuccess(true)
+        setTimeout(() => {
+          onDepositVerified(trimmed)
+          onClose()
+        }, 1500)
+      })
   }
 
   return (
