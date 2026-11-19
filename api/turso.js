@@ -48,6 +48,9 @@ export async function ensureNeuroSchema() {
         phone TEXT,
         email_verified INTEGER DEFAULT 0,
         email_otp TEXT,
+        exam_status TEXT DEFAULT 'pending', -- 'pending', 'submitted', 'passed', 'failed'
+        exam_score REAL DEFAULT 0,
+        admin_verified INTEGER DEFAULT 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       );
     `);
@@ -62,6 +65,30 @@ export async function ensureNeuroSchema() {
     try {
       await client.execute(`ALTER TABLE neuro_users ADD COLUMN email_otp TEXT`);
     } catch (_) {}
+    try {
+      await client.execute(`ALTER TABLE neuro_users ADD COLUMN exam_status TEXT DEFAULT 'pending'`);
+    } catch (_) {}
+    try {
+      await client.execute(`ALTER TABLE neuro_users ADD COLUMN exam_score REAL DEFAULT 0`);
+    } catch (_) {}
+    try {
+      await client.execute(`ALTER TABLE neuro_users ADD COLUMN admin_verified INTEGER DEFAULT 0`);
+    } catch (_) {}
+
+    // 1b. Platform Settings table (Adjustable deposit amount, etc.)
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS neuro_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT
+      );
+    `);
+
+    await client.execute({
+      sql: `INSERT OR IGNORE INTO neuro_settings (key, value) VALUES 
+        ('activation_deposit_kes', '5000'),
+        ('activation_deposit_usdt', '38.5')`,
+      args: []
+    });
 
     // 2. Crypto Deposits table
     await client.execute(`
@@ -122,9 +149,9 @@ export async function ensureNeuroSchema() {
     if (adminCheck.rows.length === 0) {
       await client.execute({
         sql: `INSERT INTO neuro_users (
-          id, email, username, password, role, is_task_unlocked, balance_available, balance_in_review, referral_code
+          id, email, username, password, role, is_task_unlocked, balance_available, balance_in_review, referral_code, email_verified, admin_verified, exam_status, exam_score
         ) VALUES (
-          'admin-root-01', 'admin@neuroannotator.online', 'admin', 'Admin1234!', 'super_admin', 1, 50000, 0, 'VIP_LEADER'
+          'admin-root-01', 'admin@neuroannotator.online', 'admin', 'Admin1234!', 'super_admin', 1, 50000, 0, 'VIP_LEADER', 1, 1, 'passed', 100
         )`,
         args: []
       });

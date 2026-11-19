@@ -31,14 +31,21 @@ export default async function handler(req, res) {
       const pendingDepositsCount = deposits.rows.filter(d => d.status === 'pending').length;
       const pendingWithdrawalsCount = withdrawals.rows.filter(w => w.status === 'pending').length;
 
+      // Fetch platform settings
+      const settingsRes = await client.execute(`SELECT * FROM neuro_settings`);
+      const settings = {};
+      settingsRes.rows.forEach(r => { settings[r.key] = r.value; });
+
       return res.status(200).json({
         metrics: {
           totalWorkers,
           totalDepositsKes,
           pendingDepositsCount,
           pendingWithdrawalsCount,
-          totalSubmissions: submissions.rows.length
+          totalSubmissions: submissions.rows.length,
+          activationDepositKes: Number(settings.activation_deposit_kes || 5000)
         },
+        settings,
         users: users.rows.map(u => ({
           id: String(u.id),
           email: String(u.email),
@@ -49,6 +56,9 @@ export default async function handler(req, res) {
           balance_in_review: Number(u.balance_in_review),
           completed_tasks_count: Number(u.completed_tasks_count),
           referral_code: u.referral_code,
+          exam_status: String(u.exam_status || 'pending'),
+          exam_score: Number(u.exam_score || 0),
+          admin_verified: Boolean(u.admin_verified),
           created_at: u.created_at
         })),
         deposits: deposits.rows.map(d => ({
@@ -106,9 +116,9 @@ export default async function handler(req, res) {
         await client.execute({
           sql: `UPDATE neuro_users 
                 SET is_task_unlocked = 1,
-                    balance_available = balance_available + 5000 
+                    balance_available = balance_available + ? 
                 WHERE id = ?`,
-          args: [deposit.user_id]
+          args: [deposit.amount_kes || 5000, deposit.user_id]
         });
       }
 
@@ -126,6 +136,46 @@ export default async function handler(req, res) {
       });
 
       return res.status(200).json({ success: true, is_task_unlocked: isUnlocked });
+    }
+
+    // 4. VERIFY WORKER ACCOUNT (Super Admin verifies after accuracy exam)
+    if (action === 'verify_worker' && req.method === 'POST') {
+      const { userId, isVerified, notes } = req.body || {};
+      if (!userId) return res.status(400).json({ error: 'Missing userId.' });
+
+      await client.execute({
+        sql: `UPDATE neuro_users SET 
+          admin_verified = ?, 
+          exam_status = CASE WHEN ? = 1 THEN 'passed' ELSE 'failed' END
+        WHERE id = ?`,
+        args: [isVerified ? 1 : 0, isVerified ? 1 : 0, userId]
+      });
+
+      return res.status(200).json({ success: true, message: `Worker verification status updated.` });
+    }
+
+    // 5. UPDATE SYSTEM SETTINGS (Super Admin raises or lowers deposit amount)
+    if (action === 'update_settings' && req.method === 'POST') {
+      const { depositKes } = req.body || {};
+      const numericDeposit = Math.max(100, Math.round(Number(depositKes) || 5000));
+      const numericUsdt = Math.round((numericDeposit / 130) * 10) / 10;
+
+      await client.execute({
+        sql: `INSERT OR REPLACE INTO neuro_settings (key, value) VALUES ('activation_deposit_kes', ?)`,
+        args: [String(numericDeposit)]
+      });
+
+      await client.execute({
+        sql: `INSERT OR REPLACE INTO neuro_settings (key, value) VALUES ('activation_deposit_usdt', ?)`,
+        args: [String(numericUsdt)]
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: `Security deposit amount updated to KSh ${numericDeposit.toLocaleString()} (~${numericUsdt} USDT).`,
+        activationDepositKes: numericDeposit,
+        activationDepositUsdt: numericUsdt
+      });
     }
 
     // 4. UPDATE WITHDRAWAL STATUS (Approve / Reject)

@@ -18,13 +18,14 @@ import { PLATFORM_RULES, CRYPTO_DEPOSIT_CONFIG } from '../data/mockData'
 export default function CryptoDepositModal({ 
   isOpen, 
   onClose, 
-  onDepositVerified 
+  onDepositVerified,
+  defaultAmount = 5000
 }) {
   const [depositTab, setDepositTab] = useState('mpesa') // 'mpesa' | 'crypto'
   
   // M-Pesa STK State
   const [mpesaPhone, setMpesaPhone] = useState('')
-  const [mpesaAmount, setMpesaAmount] = useState('5000')
+  const [mpesaAmount, setMpesaAmount] = useState(() => String(defaultAmount || 5000))
   const [mpesaReceipt, setMpesaReceipt] = useState('')
   const [stkLoading, setStkLoading] = useState(false)
   const [stkSuccessMsg, setStkSuccessMsg] = useState('')
@@ -309,45 +310,6 @@ export default function CryptoDepositModal({
                     <span>{mpesaError}</span>
                   </div>
                 )}
-              </div>
-
-              {/* Manual Paybill Instructions */}
-              <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-4 space-y-3">
-                <span className="text-xs font-bold text-slate-300 block">
-                  Or Pay Manually via Lipa na M-Pesa:
-                </span>
-                <div className="grid grid-cols-2 gap-3 text-center">
-                  <div className="bg-slate-900 border border-slate-800 p-2.5 rounded-xl">
-                    <span className="text-[10px] text-slate-400 font-mono block">BUSINESS SHORTCODE / PAYBILL</span>
-                    <span className="text-base font-black text-white font-mono">5570700</span>
-                  </div>
-                  <div className="bg-slate-900 border border-slate-800 p-2.5 rounded-xl">
-                    <span className="text-[10px] text-slate-400 font-mono block">ACCOUNT NUMBER</span>
-                    <span className="text-base font-black text-emerald-400 font-mono">NEURO</span>
-                  </div>
-                </div>
-
-                <form onSubmit={handleSubmitMpesaReceipt} className="space-y-3 pt-2">
-                  <label className="text-xs font-bold text-slate-300 block">
-                    Enter M-Pesa Confirmation SMS Code:
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      placeholder="Enter 10-character code"
-                      value={mpesaReceipt}
-                      onChange={(e) => setMpesaReceipt(e.target.value.toUpperCase())}
-                      className="flex-1 bg-slate-900 border border-slate-800 focus:border-emerald-500 text-white rounded-xl px-3.5 py-2.5 text-xs font-mono uppercase font-bold outline-none"
-                    />
-                    <button
-                      type="submit"
-                      disabled={submittingReceipt}
-                      className="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl transition disabled:opacity-50"
-                    >
-                      {submittingReceipt ? 'Verifying...' : 'Submit Code'}
-                    </button>
-                  </div>
-                </form>
               </div>
             </div>
           ) : (

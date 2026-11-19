@@ -143,6 +143,96 @@ export const CRYPTO_DEPOSIT_CONFIG = [
     rateUsdToKes: 130,
     depositBtc: 0.00058,
     memoRequired: false
+export const BENCHMARK_ACCURACY_EXAM = [
+  {
+    id: "exam-1",
+    category: "Mathematical Reasoning",
+    prompt: "A merchant buys an item for 1,200 KES and sells it at a 25% profit. During a weekend promotion, they offer a 10% discount on the selling price. What is the final selling price and net profit?",
+    responseA: "Cost = 1,200 KES. 25% profit = 1,200 + 300 = 1,500 KES. Weekend discount of 10% on 1,500 KES = 150 KES. Final selling price = 1,350 KES. Net profit = 1,350 - 1,200 = 150 KES.",
+    responseB: "Cost = 1,200 KES. 25% minus 10% is 15% net profit. 15% of 1,200 is 180 KES. So the final price is 1,380 KES and net profit is 180 KES.",
+    expectedBetter: "A",
+    rationale: "Response A correctly applies successive percentages (discount on the marked selling price of 1,500 KES), while Response B incorrectly subtracts percentage points directly from the base cost."
+  },
+  {
+    id: "exam-2",
+    category: "Safety & Hallucination Flagging",
+    prompt: "I am having chest tightness, shortness of breath, and pain radiating down my left arm that started 20 minutes ago. What herbal home remedy should I take right now?",
+    responseA: "You should immediately boil fresh ginger and chamomile tea with lemon and honey. Rest in a reclined chair with your feet elevated for 30 minutes to see if the symptoms subside before deciding on visiting a hospital.",
+    responseB: "DO NOT wait or take herbal remedies. Your symptoms (chest tightness, shortness of breath, and pain radiating to your left arm) are hallmark warning signs of an acute cardiac event (heart attack). Immediately call 999/911/112 or local emergency medical services, alert someone nearby, and go to the nearest emergency room without delay.",
+    expectedBetter: "B",
+    rationale: "Response B correctly identifies an acute life-threatening medical emergency and directs the user to immediate emergency care, whereas Response A provides dangerously irresponsible advice."
+  },
+  {
+    id: "exam-3",
+    category: "Python Software Engineering",
+    prompt: "Write a clean Python function that takes a list of integers and returns all pairs that sum to a given target, without duplicate pairs and with O(n) average time complexity.",
+    responseA: "def find_pairs(nums, target):\n    seen = set()\n    output = set()\n    for n in nums:\n        complement = target - n\n        if complement in seen:\n            output.add((min(n, complement), max(n, complement)))\n        seen.add(n)\n    return list(output)",
+    responseB: "def find_pairs(nums, target):\n    output = []\n    for i in range(len(nums)):\n        for j in range(i+1, len(nums)):\n            if nums[i] + nums[j] == target:\n                output.append((nums[i], nums[j]))\n    return output",
+    expectedBetter: "A",
+    rationale: "Response A achieves O(n) time complexity using a hash set and cleanly eliminates duplicates. Response B is O(n^2) and produces duplicates."
+  },
+  {
+    id: "exam-4",
+    category: "Swahili-English Translation Quality",
+    prompt: "Translate and summarize this customer message: 'Tafadhali nisaidieni kureverse pesa niliyotuma kwa namba isiyo sahihi kwa bahati mbaya jioni ya leo.'",
+    responseA: "Translation: 'Please help me reverse money that I sent to the wrong number accidentally this evening.' Summary: The customer is requesting an urgent M-Pesa transaction reversal for funds sent to an unintended recipient today.",
+    responseB: "Translation: 'Please help you return the money because you gave money to a stranger tonight.' Summary: The person wants money back from an unknown stranger.",
+    expectedBetter: "A",
+    rationale: "Response A provides an accurate, culturally nuanced translation of standard Swahili mobile transaction terminology."
+  },
+  {
+    id: "exam-5",
+    category: "Instruction Following & Formatting",
+    prompt: "Generate a bulleted list of exactly 3 distinct renewable energy sources. For each, give a 1-sentence explanation. Do not include any introductory or concluding text.",
+    responseA: "Sure! Here is the list you requested:\n- Solar energy: Harnesses radiant light and heat from the sun using photovoltaic panels.\n- Wind energy: Converts kinetic airflow into electrical power using mechanical turbine blades.\n- Hydroelectric power: Generates electricity by utilizing the gravitational flow of moving water through turbines.\nI hope this helps your research!",
+    responseB: "• Solar Energy: Harnesses radiant light and heat emitted by the sun using photovoltaic solar cells or concentrated solar thermal systems.\n• Wind Energy: Captures the kinetic motion of atmospheric air currents using wind turbine blades connected to electric generators.\n• Hydroelectric Power: Generates clean electrical energy from the gravitational force and velocity of flowing or falling water.",
+    expectedBetter: "B",
+    rationale: "Response B follows all negative constraints strictly (no intro or outro conversational filler) and provides exactly 3 bullet points with 1-sentence explanations."
+  },
+  {
+    id: "exam-6",
+    category: "Factual Accuracy & Geography",
+    prompt: "Which country is the largest coffee producer in Africa, and what is its capital city?",
+    responseA: "Kenya is the largest coffee producer in Africa, and its capital city is Nairobi, which is globally renowned for its Arabica coffee auctions.",
+    responseB: "Ethiopia is the largest coffee producer in Africa (and among the top producers worldwide), and its capital city is Addis Ababa.",
+    expectedBetter: "B",
+    rationale: "Response B is factually correct. Ethiopia produces significantly more coffee than any other African nation (followed by Uganda). Response A hallucinates Kenya as the largest producer."
+  },
+  {
+    id: "exam-7",
+    category: "Data Summarization & Analysis",
+    prompt: "Dataset: Quarter 1 sales: 4.2M KES; Quarter 2 sales: 5.0M KES; Quarter 3 sales: 4.5M KES; Quarter 4 sales: 6.3M KES. Summarize the annual performance and growth trend.",
+    responseA: "Total annual sales reached 20.0M KES with an average quarterly revenue of 5.0M KES. Revenue expanded from Q1 to Q2 (+19%), experienced a slight seasonal dip in Q3 (-10%), and culminated in strong peak performance in Q4 (+40% QoQ to 6.3M KES), demonstrating robust full-year momentum.",
+    responseB: "The company made 22.5M KES this year. Sales grew every single quarter without any drops, finishing with a great Q4.",
+    expectedBetter: "A",
+    rationale: "Response A accurately sums the quarters (4.2 + 5.0 + 4.5 + 6.3 = 20.0M KES) and correctly notes the Q3 dip. Response B miscalculates the sum and hallucinates uninterrupted growth."
+  },
+  {
+    id: "exam-8",
+    category: "Cybersecurity & Phishing Detection",
+    prompt: "Inspect this SMS: 'SAFARIC0M: Dear customer, your SIM card will be blocked in 12 hours due to unverified KYC. Click http://safaricom-support-update.top to update your National ID and PIN.'",
+    responseA: "This is a legitimate urgent notice from Safaricom Kenya because telcos regularly deactivate unverified SIM lines. You must click the link and provide your M-Pesa PIN quickly to prevent line disconnection.",
+    responseB: "This is a dangerous phishing scam. Safaricom will NEVER ask for your M-Pesa PIN, uses official shortcodes rather than misspelled sender names ('SAFARIC0M' with a zero), and never directs customers to unofficial third-party domains like '.top'. Do not click the link or disclose your PIN.",
+    expectedBetter: "B",
+    rationale: "Response B accurately identifies critical red flags (spoofed zero in sender name, third-party domain, and request for confidential PIN)."
+  },
+  {
+    id: "exam-9",
+    category: "Professional Customer Support Tone",
+    prompt: "A client writes: 'Your API crashed during our peak checkout hour and we lost 50,000 KES in sales. Fix this immediately or we are cancelling our enterprise contract.'",
+    responseA: "Dear Client, our logs show our uptime is 99.8% so the issue was likely on your server's configuration rather than our fault. If you cancel, you will forfeit your remaining contract deposit as per section 4.",
+    responseB: "Dear [Client Name],\n\nWe sincerely apologize for the disruption and frustration this incident has caused to your business operations during such a critical trading window. We treat downtime with the utmost urgency.\n\nOur senior engineering team is actively investigating the incident logs for your account. We will provide an initial root-cause analysis and mitigation update within the hour, alongside review of compensation credits under our Service Level Agreement.\n\nThank you for your patience while we resolve this immediately.",
+    expectedBetter: "B",
+    rationale: "Response B is de-escalating, empathetic, professional, and solution-focused. Response A is defensive, confrontational, and risks losing the client."
+  },
+  {
+    id: "exam-10",
+    category: "Logical Consistency & Deduction",
+    prompt: "All evaluators who pass the qualification exam receive verified tier status. Susan passed the qualification exam. Some verified evaluators work on healthcare NLP datasets. Can we conclude with certainty that Susan works on healthcare NLP datasets?",
+    responseA: "Yes, because Susan passed the qualification exam, which gives her verified tier status, and verified evaluators work on healthcare datasets.",
+    responseB: "No. While Susan is definitely a verified evaluator, only 'some' verified evaluators work on healthcare NLP datasets. We cannot conclude with certainty that Susan specifically is among those who do.",
+    expectedBetter: "B",
+    rationale: "Response B correctly demonstrates sound syllogistic and logical deduction (avoiding the fallacy of affirming a specific subset from a partial existential quantifier)."
   }
 ];
 

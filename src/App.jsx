@@ -28,10 +28,13 @@ import ClientCampaignCreator from './components/ClientCampaignCreator'
 import CryptoDepositModal from './components/CryptoDepositModal'
 import AuthModal from './components/AuthModal'
 import AdminPortal from './components/AdminPortal'
+import BenchmarkExamModal from './components/BenchmarkExamModal'
 
 export default function App() {
   const [campaigns, setCampaigns] = useState(INITIAL_CAMPAIGNS)
   const [activeCampaign, setActiveCampaign] = useState(null)
+  const [activationDepositKes, setActivationDepositKes] = useState(5000)
+  const [isExamModalOpen, setIsExamModalOpen] = useState(false)
   const [currentTab, setCurrentTab] = useState(() => {
     const path = window.location.pathname.toLowerCase();
     const hash = window.location.hash.toLowerCase();
@@ -111,6 +114,24 @@ export default function App() {
     }
   }, [currentUser])
 
+  // Fetch platform settings (deposit amount)
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const res = await fetch('/api/admin?action=overview')
+        if (res.ok) {
+          const json = await res.json()
+          if (json.settings?.activation_deposit_kes) {
+            setActivationDepositKes(json.settings.activation_deposit_kes)
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load settings:', err)
+      }
+    }
+    fetchSettings()
+  }, [])
+
   // Refresh profile data periodically
   useEffect(() => {
     if (!currentUser?.id) return
@@ -125,6 +146,9 @@ export default function App() {
             setIsTaskAccessUnlocked(true)
             localStorage.setItem('neuro_task_access_unlocked', 'true')
           }
+          if (fresh.exam_status === 'pending') {
+            setIsExamModalOpen(true)
+          }
         }
       } catch (err) {
         console.error('Session sync error:', err)
@@ -138,6 +162,8 @@ export default function App() {
     setCurrentUser(user)
     if (user.is_super_admin) {
       setCurrentTab('admin')
+    } else if (user.exam_status === 'pending') {
+      setIsExamModalOpen(true)
     }
   }
 
@@ -384,7 +410,7 @@ export default function App() {
                         Activate Evaluation Tasks with One-Time Security Deposit
                       </h3>
                       <p className="text-xs text-slate-300 leading-relaxed">
-                        To maintain high dataset integrity and quality benchmarks, new evaluators lock a refundable <strong>5,000 KES (~38.5 USDT)</strong> security bond. Deposits are credited to your active workstation balance and unlock immediate task queue access.
+                        To maintain high dataset integrity and quality benchmarks, new evaluators lock a refundable <strong>{activationDepositKes.toLocaleString()} KES (~{(activationDepositKes / 130).toFixed(1)} USDT)</strong> security bond. Deposits are credited to your active workstation balance and unlock immediate task queue access.
                       </p>
                       <div className="flex flex-wrap items-center gap-4 pt-2">
                         <button
@@ -395,7 +421,7 @@ export default function App() {
                           className="px-5 py-2.5 rounded-xl bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold text-xs shadow-lg shadow-teal-500/20 transition flex items-center gap-2"
                         >
                           <Unlock className="w-3.5 h-3.5" />
-                          <span>Unlock All High-Yield Campaigns (5,000 KES)</span>
+                          <span>Unlock All High-Yield Campaigns ({activationDepositKes.toLocaleString()} KES)</span>
                         </button>
                         <span className="text-xs text-slate-400 font-mono">
                           Accepted: M-Pesa Express • USDT (TRC20 / Polygon) • BTC
@@ -557,11 +583,29 @@ export default function App() {
         onRequestWithdrawal={handleRequestWithdrawal}
       />
 
-      {/* Crypto Security Deposit Modal (5,000 KES Task Unlock) */}
+      {/* Crypto Security Deposit Modal */}
       <CryptoDepositModal
         isOpen={isDepositModalOpen}
         onClose={() => setIsDepositModalOpen(false)}
         onDepositVerified={handleDepositVerified}
+        defaultAmount={activationDepositKes}
+      />
+
+      {/* Benchmark Accuracy Exam Modal (10 Paid Evaluation Tasks) */}
+      <BenchmarkExamModal
+        isOpen={isExamModalOpen}
+        onClose={() => setIsExamModalOpen(false)}
+        currentUser={currentUser}
+        onExamSubmitted={(examResult) => {
+          if (currentUser) {
+            const updated = { ...currentUser, exam_score: examResult.score, exam_status: examResult.status }
+            setCurrentUser(updated)
+            localStorage.setItem('neuro_user_session', JSON.stringify(updated))
+          }
+          if (examResult.rewardKes) {
+            setBalanceInReview(prev => prev + examResult.rewardKes)
+          }
+        }}
       />
 
       {/* Footer */}

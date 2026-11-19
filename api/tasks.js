@@ -14,8 +14,59 @@ export default async function handler(req, res) {
 
   await ensureNeuroSchema();
 
-  try {
-    // 1. SUBMIT TASK EVALUATION
+    const { action } = req.query || {};
+
+    // 1. SUBMIT BENCHMARK ACCURACY EXAM (10 Tasks, paid, measures accuracy)
+    if (action === 'submit_exam' && req.method === 'POST') {
+      const { userId, answers = [], totalEarnedKes = 850 } = req.body || {};
+      if (!userId) return res.status(400).json({ error: 'Missing userId parameter.' });
+
+      // Calculate accuracy against ground truth answers
+      let correctCount = 0;
+      answers.forEach(a => {
+        if (a.selectedResponse === a.expectedBetter) {
+          correctCount++;
+        }
+      });
+
+      const totalTasks = answers.length || 10;
+      const scorePercentage = Math.round((correctCount / totalTasks) * 100 * 10) / 10;
+      const examStatus = 'submitted'; // Queued for Super Admin verification
+
+      // Update user with exam score and credit earned exam payout to balance_in_review
+      await client.execute({
+        sql: `UPDATE neuro_users SET 
+          exam_score = ?,
+          exam_status = ?,
+          accuracy_score = ?,
+          completed_tasks_count = completed_tasks_count + ?,
+          balance_in_review = balance_in_review + ?
+        WHERE id = ?`,
+        args: [scorePercentage, examStatus, scorePercentage, totalTasks, totalEarnedKes, userId]
+      });
+
+      // Save each task submission into neuro_submissions table
+      for (const ans of answers) {
+        await client.execute({
+          sql: `INSERT INTO neuro_submissions (
+            user_id, username, campaign_id, task_id, selected_response, rationale, earned_kes, status
+          ) VALUES (?, 'worker', 'exam-accuracy-10', ?, ?, ?, ?, 'under_review')`,
+          args: [userId, ans.taskId, ans.selectedResponse, ans.rationale || 'Benchmark Exam Evaluation', Math.round(totalEarnedKes / totalTasks)]
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        scorePercentage,
+        correctCount,
+        totalTasks,
+        earnedKes: totalEarnedKes,
+        examStatus,
+        message: `Benchmark evaluation completed! Your accuracy score is ${scorePercentage}%. Submitted to Super Admin for verification.`
+      });
+    }
+
+    // 2. SUBMIT REGULAR TASK EVALUATION
     if (req.method === 'POST') {
       const { 
         userId, 

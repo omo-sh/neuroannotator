@@ -13,7 +13,9 @@ import {
   ExternalLink,
   Unlock,
   Lock,
-  DollarSign
+  DollarSign,
+  SlidersHorizontal,
+  Award
 } from 'lucide-react'
 
 export default function AdminPortal({ currentUser }) {
@@ -26,16 +28,20 @@ export default function AdminPortal({ currentUser }) {
       pendingWithdrawalsCount: 0,
       totalSubmissions: 0
     },
+    settings: {
+      activation_deposit_kes: 5000
+    },
     users: [],
     deposits: [],
     withdrawals: [],
     submissions: []
   })
 
-  const [activeTab, setActiveTab] = useState('deposits') // 'deposits' | 'withdrawals' | 'users'
+  const [activeTab, setActiveTab] = useState('deposits') // 'deposits' | 'withdrawals' | 'users' | 'settings'
   const [searchTerm, setSearchTerm] = useState('')
   const [actionLoading, setActionLoading] = useState(false)
   const [msg, setMsg] = useState('')
+  const [customDepositAmount, setCustomDepositAmount] = useState('5000')
 
   const fetchOverview = async () => {
     setLoading(true)
@@ -44,6 +50,9 @@ export default function AdminPortal({ currentUser }) {
       const json = await res.json()
       if (res.ok) {
         setData(json)
+        if (json.settings?.activation_deposit_kes) {
+          setCustomDepositAmount(String(json.settings.activation_deposit_kes))
+        }
       }
     } catch (e) {
       console.error(e)
@@ -55,6 +64,54 @@ export default function AdminPortal({ currentUser }) {
   useEffect(() => {
     fetchOverview()
   }, [])
+
+  // Update System Settings (Deposit Amount)
+  const handleSaveSettings = async () => {
+    const amount = Number(customDepositAmount)
+    if (isNaN(amount) || amount < 100) {
+      alert('Please enter a valid deposit amount (min 100 KES)')
+      return
+    }
+
+    setActionLoading(true)
+    try {
+      const res = await fetch('/api/admin?action=update_settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ activationDepositKes: amount })
+      })
+      if (res.ok) {
+        setMsg(`Platform activation deposit successfully updated to KES ${amount.toLocaleString()}.`)
+        setTimeout(() => setMsg(''), 4000)
+        fetchOverview()
+      }
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  // Super Admin Verifies or Rejects Worker
+  const handleVerifyWorker = async (userId, status) => {
+    setActionLoading(true)
+    try {
+      const res = await fetch('/api/admin?action=verify_worker', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, status })
+      })
+      if (res.ok) {
+        setMsg(`Worker #${userId} evaluation status marked as ${status}.`)
+        setTimeout(() => setMsg(''), 4000)
+        fetchOverview()
+      }
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setActionLoading(false)
+    }
+  }
 
   // Approve or Reject Deposit
   const handleUpdateDeposit = async (depositId, status) => {
@@ -228,6 +285,15 @@ export default function AdminPortal({ currentUser }) {
           >
             Annotator Accounts ({data.users.length})
           </button>
+          <button
+            onClick={() => setActiveTab('settings')}
+            className={`px-4 py-1.5 rounded-lg transition flex items-center gap-1.5 ${
+              activeTab === 'settings' ? 'bg-teal-500 text-slate-950 font-bold' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+            <span>Platform Settings</span>
+          </button>
         </div>
 
         <div className="relative">
@@ -241,6 +307,57 @@ export default function AdminPortal({ currentUser }) {
           />
         </div>
       </div>
+
+      {/* Tab 0: Platform Settings (Adjust Deposit Requirement) */}
+      {activeTab === 'settings' && (
+        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6 max-w-2xl">
+          <div>
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-teal-500/10 border border-teal-500/20 text-teal-400 text-xs font-bold font-mono mb-2">
+              <SlidersHorizontal className="w-3.5 h-3.5" />
+              <span>Platform Controls</span>
+            </div>
+            <h3 className="text-xl font-bold text-white">
+              Worker Activation Deposit Settings
+            </h3>
+            <p className="text-xs text-slate-400 mt-1">
+              Raise or lower the required security deposit amount for annotator accounts. Changes take effect across all user registration prompts, M-Pesa STK amounts, and workstation locks immediately.
+            </p>
+          </div>
+
+          <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div>
+                <label className="text-xs font-bold text-slate-200 block">
+                  Activation Deposit Requirement (KES)
+                </label>
+                <span className="text-[11px] text-slate-500 font-mono">
+                  Currently active: <strong>{data.settings?.activation_deposit_kes?.toLocaleString() || 5000} KES</strong>
+                </span>
+              </div>
+              <div className="w-full sm:w-48">
+                <input
+                  type="number"
+                  min="100"
+                  step="500"
+                  value={customDepositAmount}
+                  onChange={(e) => setCustomDepositAmount(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-700 focus:border-teal-500 text-white font-mono font-bold text-sm rounded-xl px-3 py-2 outline-none transition"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button
+                onClick={handleSaveSettings}
+                disabled={actionLoading}
+                className="px-5 py-2 rounded-xl bg-teal-500 hover:bg-teal-400 disabled:opacity-50 text-slate-950 font-bold text-xs transition shadow-lg shadow-teal-500/20"
+              >
+                {actionLoading ? 'Updating Database...' : 'Save New Deposit Amount'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Tab 1: Crypto Deposits */}
       {activeTab === 'deposits' && (
@@ -431,10 +548,11 @@ export default function AdminPortal({ currentUser }) {
                 <tr>
                   <th className="p-4">User</th>
                   <th className="p-4">Role</th>
+                  <th className="p-4">Exam Score & QA Review</th>
+                  <th className="p-4">Super Admin Verification</th>
                   <th className="p-4">Task Tier Access</th>
                   <th className="p-4">Available Balance</th>
-                  <th className="p-4">Tasks Completed</th>
-                  <th className="p-4 text-right">Quick Access Toggle</th>
+                  <th className="p-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60">
@@ -455,6 +573,39 @@ export default function AdminPortal({ currentUser }) {
                         <span className="font-mono text-slate-400">{u.role}</span>
                       </td>
                       <td className="p-4">
+                        {u.exam_status === 'submitted' || u.exam_status === 'passed' ? (
+                          <div>
+                            <span className="font-mono font-bold text-emerald-400 text-sm">
+                              {u.exam_score !== null && u.exam_score !== undefined ? `${u.exam_score}%` : 'Pending Score'}
+                            </span>
+                            <div className="text-[10px] text-slate-400 capitalize">Status: {u.exam_status}</div>
+                          </div>
+                        ) : (
+                          <span className="text-[11px] text-slate-500 font-mono">Not Taken</span>
+                        )}
+                      </td>
+                      <td className="p-4">
+                        {u.admin_verified ? (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 inline-flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3" />
+                            <span>Verified</span>
+                          </span>
+                        ) : (
+                          <div className="flex items-center gap-1.5">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                              Pending
+                            </span>
+                            <button
+                              onClick={() => handleVerifyWorker(u.id, 'verified')}
+                              disabled={actionLoading}
+                              className="px-2.5 py-1 bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold rounded text-[10px] transition shadow"
+                            >
+                              Verify Worker
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                      <td className="p-4">
                         {u.is_task_unlocked ? (
                           <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                             Unlocked
@@ -469,7 +620,6 @@ export default function AdminPortal({ currentUser }) {
                         KES {u.balance_available.toLocaleString()}
                         <div className="text-[10px] text-slate-500 font-normal">Review: KES {u.balance_in_review.toLocaleString()}</div>
                       </td>
-                      <td className="p-4 font-mono">{u.completed_tasks_count}</td>
                       <td className="p-4 text-right">
                         <button
                           onClick={() => handleToggleAccess(u.id, u.is_task_unlocked)}
@@ -483,7 +633,7 @@ export default function AdminPortal({ currentUser }) {
                           {u.is_task_unlocked ? (
                             <>
                               <Lock className="w-3 h-3" />
-                              <span>Revoke Access</span>
+                              <span>Revoke</span>
                             </>
                           ) : (
                             <>

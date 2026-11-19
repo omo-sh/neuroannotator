@@ -58,11 +58,7 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
       if (mode === 'signup' && data.requiresEmailVerification) {
         setTempUser(data)
         setStep('verify_email')
-        if (data.verificationCode) {
-          setOtpSentMsg(`Verification security code sent to ${email} (Code: ${data.verificationCode})`)
-        } else {
-          setOtpSentMsg(`Verification security code sent to ${email}. Check your inbox.`)
-        }
+        setOtpSentMsg(`Verification security code sent to ${email}. Please check your inbox.`)
         return
       }
 
@@ -135,12 +131,8 @@ export default function AuthModal({ isOpen, onClose, onAuthSuccess }) {
           email: email.trim()
         })
       })
-      const data = await res.json()
-      if (data.verificationCode) {
-        setOtpSentMsg(`New code sent to ${email} (Code: ${data.verificationCode})`)
-      } else {
-        setOtpSentMsg(`New verification code sent to ${email}`)
-      }
+      await res.json()
+      setOtpSentMsg(`New verification code sent to ${email}. Please check your inbox.`)
     } catch {
       setError('Failed to resend code. Please retry.')
     } finally {
