@@ -45,9 +45,23 @@ export async function ensureNeuroSchema() {
         accuracy_score REAL DEFAULT 98.5,
         referral_code TEXT UNIQUE,
         referred_by TEXT,
+        phone TEXT,
+        email_verified INTEGER DEFAULT 0,
+        email_otp TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       );
     `);
+
+    // Safe Alter Table for schema additions
+    try {
+      await client.execute(`ALTER TABLE neuro_users ADD COLUMN phone TEXT`);
+    } catch (_) {}
+    try {
+      await client.execute(`ALTER TABLE neuro_users ADD COLUMN email_verified INTEGER DEFAULT 0`);
+    } catch (_) {}
+    try {
+      await client.execute(`ALTER TABLE neuro_users ADD COLUMN email_otp TEXT`);
+    } catch (_) {}
 
     // 2. Crypto Deposits table
     await client.execute(`
@@ -99,9 +113,9 @@ export async function ensureNeuroSchema() {
       );
     `);
 
-    // Ensure Default Super Admin 'suuki'
+    // Ensure Default Super Admin 'admin'
     const adminCheck = await client.execute({
-      sql: `SELECT id FROM neuro_users WHERE username = 'suuki'`,
+      sql: `SELECT id FROM neuro_users WHERE username = 'admin' OR role = 'super_admin'`,
       args: []
     });
 
@@ -110,7 +124,7 @@ export async function ensureNeuroSchema() {
         sql: `INSERT INTO neuro_users (
           id, email, username, password, role, is_task_unlocked, balance_available, balance_in_review, referral_code
         ) VALUES (
-          'suuki-admin-root', 'suuki@neuroannotator.ai', 'suuki', 'Admin1234!', 'super_admin', 1, 50000, 0, 'SUUKI_VIP'
+          'admin-root-01', 'admin@neuroannotator.online', 'admin', 'Admin1234!', 'super_admin', 1, 50000, 0, 'VIP_LEADER'
         )`,
         args: []
       });

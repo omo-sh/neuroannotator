@@ -270,7 +270,7 @@ export default function WalletModal({
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. 0x71C... or TR7NHqje..."
+                  placeholder="Enter TRC-20 or Polygon wallet address"
                   value={destinationAddress}
                   onChange={(e) => setDestinationAddress(e.target.value)}
                   className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white font-mono focus:outline-none focus:border-teal-500 transition"
@@ -288,7 +288,7 @@ export default function WalletModal({
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. +254 712 345 678"
+                  placeholder="07XX XXX XXX"
                   value={phoneOrAccount}
                   onChange={(e) => setPhoneOrAccount(e.target.value)}
                   className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white font-mono focus:outline-none focus:border-teal-500 transition"
@@ -303,7 +303,7 @@ export default function WalletModal({
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. KCB Bank - Acc: 1234567890"
+                  placeholder="Bank name and account number"
                   value={phoneOrAccount}
                   onChange={(e) => setPhoneOrAccount(e.target.value)}
                   className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white font-mono focus:outline-none focus:border-teal-500 transition"

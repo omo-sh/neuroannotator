@@ -32,7 +32,29 @@ import AdminPortal from './components/AdminPortal'
 export default function App() {
   const [campaigns, setCampaigns] = useState(INITIAL_CAMPAIGNS)
   const [activeCampaign, setActiveCampaign] = useState(null)
-  const [currentTab, setCurrentTab] = useState('tasks') // 'tasks' | 'client' | 'referrals' | 'admin'
+  const [currentTab, setCurrentTab] = useState(() => {
+    const path = window.location.pathname.toLowerCase();
+    const hash = window.location.hash.toLowerCase();
+    return (path === '/portal' || path === '/admin' || hash === '#portal' || hash === '#admin') ? 'admin' : 'tasks';
+  });
+
+  useEffect(() => {
+    const checkAdminRoute = () => {
+      const path = window.location.pathname.toLowerCase();
+      const hash = window.location.hash.toLowerCase();
+      if (path === '/portal' || path === '/admin' || hash === '#portal' || hash === '#admin') {
+        setCurrentTab('admin');
+      } else if (currentTab === 'admin') {
+        setCurrentTab('tasks');
+      }
+    };
+    window.addEventListener('popstate', checkAdminRoute);
+    window.addEventListener('hashchange', checkAdminRoute);
+    return () => {
+      window.removeEventListener('popstate', checkAdminRoute);
+      window.removeEventListener('hashchange', checkAdminRoute);
+    };
+  }, [currentTab]);
   
   // Auth & Session State
   const [currentUser, setCurrentUser] = useState(() => {
@@ -181,7 +203,7 @@ export default function App() {
     setCurrentTab('tasks')
   }
 
-  const isSuperAdmin = currentUser?.is_super_admin || currentUser?.username === 'suuki'
+  const isSuperAdmin = currentUser?.is_super_admin || currentUser?.username === 'admin' || currentUser?.role === 'super_admin'
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-teal-500 selection:text-white">
@@ -238,21 +260,6 @@ export default function App() {
               <Users className="w-3.5 h-3.5" />
               <span>Referrals (500 KES)</span>
             </button>
-
-            {/* Admin Command Desk Tab (visible to super admins or via ?admin=true) */}
-            {(isSuperAdmin || window.location.search.includes('admin')) && (
-              <button
-                onClick={() => { setActiveCampaign(null); setCurrentTab('admin'); }}
-                className={`px-4 py-1.5 rounded-xl transition flex items-center gap-1.5 ${
-                  currentTab === 'admin' 
-                    ? 'bg-amber-400 text-slate-950 font-black shadow' 
-                    : 'text-amber-400/90 hover:text-amber-300'
-                }`}
-              >
-                <SlidersHorizontal className="w-3.5 h-3.5" />
-                <span>Admin Command</span>
-              </button>
-            )}
           </nav>
 
           {/* Right User Bar & Wallet Pill */}
@@ -377,7 +384,7 @@ export default function App() {
                         Activate Evaluation Tasks with One-Time Security Deposit
                       </h3>
                       <p className="text-xs text-slate-300 leading-relaxed">
-                        To maintain high dataset integrity and prevent bot sybil spam, new evaluators lock a refundable <strong>5,000 KES (~38.5 USDT)</strong> security bond. Deposits are credited to your active workstation balance and unlock immediate task queue access.
+                        To maintain high dataset integrity and quality benchmarks, new evaluators lock a refundable <strong>5,000 KES (~38.5 USDT)</strong> security bond. Deposits are credited to your active workstation balance and unlock immediate task queue access.
                       </p>
                       <div className="flex flex-wrap items-center gap-4 pt-2">
                         <button
@@ -391,7 +398,7 @@ export default function App() {
                           <span>Unlock All High-Yield Campaigns (5,000 KES)</span>
                         </button>
                         <span className="text-xs text-slate-400 font-mono">
-                          Accepted: USDT (TRC20 / Polygon) • BTC
+                          Accepted: M-Pesa Express • USDT (TRC20 / Polygon) • BTC
                         </span>
                       </div>
                     </div>

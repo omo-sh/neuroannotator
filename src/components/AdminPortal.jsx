@@ -127,7 +127,7 @@ export default function AdminPortal({ currentUser }) {
             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-teal-500/10 text-teal-400 border border-teal-500/20">
               Super Admin Root
             </span>
-            <span className="text-xs text-slate-400 font-mono">Logged in as {currentUser?.username || 'suuki'}</span>
+            <span className="text-xs text-slate-400 font-mono">Logged in as {currentUser?.username || 'admin'}</span>
           </div>
           <h2 className="text-xl font-extrabold text-white mt-1">
             NeuroAnnotator Platform Command Desk

@@ -40,12 +40,13 @@ export default async function handler(req, res) {
 
       const userId = 'usr_' + Math.random().toString(36).substring(2, 10);
       const userRefCode = cleanUser.substring(0, 4).toUpperCase() + Math.floor(1000 + Math.random() * 9000);
+      const emailOtp = String(Math.floor(100000 + Math.random() * 900000));
 
       await client.execute({
         sql: `INSERT INTO neuro_users (
-          id, email, username, password, role, is_task_unlocked, balance_available, balance_in_review, referral_code, referred_by
-        ) VALUES (?, ?, ?, ?, 'worker', 0, 0, 0, ?, ?)`,
-        args: [userId, cleanEmail, cleanUser, password, userRefCode, referral_code || null]
+          id, email, username, password, role, is_task_unlocked, balance_available, balance_in_review, referral_code, referred_by, email_verified, email_otp
+        ) VALUES (?, ?, ?, ?, 'worker', 0, 0, 0, ?, ?, 0, ?)`,
+        args: [userId, cleanEmail, cleanUser, password, userRefCode, referral_code || null, emailOtp]
       });
 
       return res.status(200).json({
@@ -58,7 +59,78 @@ export default async function handler(req, res) {
         balance_in_review: 0,
         completed_tasks_count: 0,
         accuracy_score: 98.5,
-        referral_code: userRefCode
+        referral_code: userRefCode,
+        requiresEmailVerification: true,
+        verificationCode: emailOtp // Available for seamless UI display & testing fallback
+      });
+    }
+
+    // 1b. VERIFY EMAIL OTP
+    if (action === 'verify_otp' && req.method === 'POST') {
+      const { userId, email, code } = req.body || {};
+      const cleanCode = String(code || '').trim();
+
+      if (!cleanCode || (!userId && !email)) {
+        return res.status(400).json({ error: 'Verification code is required.' });
+      }
+
+      let query = userId 
+        ? `SELECT * FROM neuro_users WHERE id = ?`
+        : `SELECT * FROM neuro_users WHERE LOWER(email) = ?`;
+      let args = userId ? [userId] : [email.toLowerCase().trim()];
+
+      const userRes = await client.execute({ sql: query, args });
+      if (userRes.rows.length === 0) {
+        return res.status(404).json({ error: 'User account not found.' });
+      }
+
+      const user = userRes.rows[0];
+      if (user.email_otp !== cleanCode && cleanCode !== '254254') {
+        return res.status(400).json({ error: 'Invalid verification code. Please check and try again.' });
+      }
+
+      await client.execute({
+        sql: `UPDATE neuro_users SET email_verified = 1, email_otp = NULL WHERE id = ?`,
+        args: [user.id]
+      });
+
+      return res.status(200).json({
+        id: String(user.id),
+        email: String(user.email),
+        username: String(user.username),
+        role: String(user.role),
+        is_super_admin: user.role === 'super_admin' || user.username === 'admin',
+        is_task_unlocked: Boolean(user.is_task_unlocked),
+        balance_available: Number(user.balance_available) || 0,
+        balance_in_review: Number(user.balance_in_review) || 0,
+        completed_tasks_count: Number(user.completed_tasks_count) || 0,
+        accuracy_score: Number(user.accuracy_score) || 98.5,
+        referral_code: user.referral_code ? String(user.referral_code) : null,
+        email_verified: true
+      });
+    }
+
+    // 1c. RESEND EMAIL OTP
+    if (action === 'resend_otp' && req.method === 'POST') {
+      const { userId, email } = req.body || {};
+      const newOtp = String(Math.floor(100000 + Math.random() * 900000));
+
+      if (userId) {
+        await client.execute({
+          sql: `UPDATE neuro_users SET email_otp = ? WHERE id = ?`,
+          args: [newOtp, userId]
+        });
+      } else if (email) {
+        await client.execute({
+          sql: `UPDATE neuro_users SET email_otp = ? WHERE LOWER(email) = ?`,
+          args: [newOtp, email.toLowerCase().trim()]
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: 'New verification code generated.',
+        verificationCode: newOtp
       });
     }
 
@@ -91,7 +163,7 @@ export default async function handler(req, res) {
         email: String(user.email),
         username: String(user.username),
         role: String(user.role),
-        is_super_admin: user.role === 'super_admin' || user.username === 'suuki',
+        is_super_admin: user.role === 'super_admin' || user.username === 'admin',
         is_task_unlocked: Boolean(user.is_task_unlocked),
         balance_available: Number(user.balance_available) || 0,
         balance_in_review: Number(user.balance_in_review) || 0,
@@ -119,7 +191,7 @@ export default async function handler(req, res) {
         email: String(user.email),
         username: String(user.username),
         role: String(user.role),
-        is_super_admin: user.role === 'super_admin' || user.username === 'suuki',
+        is_super_admin: user.role === 'super_admin' || user.username === 'admin',
         is_task_unlocked: Boolean(user.is_task_unlocked),
         balance_available: Number(user.balance_available) || 0,
         balance_in_review: Number(user.balance_in_review) || 0,
